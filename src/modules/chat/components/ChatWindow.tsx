@@ -24,10 +24,7 @@ export default function ChatWindow() {
         )}
 
         {messages.map((m) => (
-          <div
-            key={m.id}
-            className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
-          >
+          <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div
               className={`max-w-[80%] rounded-lg px-4 py-2.5 text-sm leading-relaxed ${
                 m.role === 'user'
@@ -51,7 +48,7 @@ export default function ChatWindow() {
 
         {error && (
           <p className="text-center text-sm text-red-400">
-            Error: {error.message}. Check your GOOGLE_GENERATIVE_AI_API_KEY in .env.local.
+            Error: {error.message}. Check your CEREBRAS_API_KEY in .env.local.
           </p>
         )}
 
@@ -59,10 +56,7 @@ export default function ChatWindow() {
       </div>
 
       {/* Input */}
-      <form
-        onSubmit={handleSubmit}
-        className="border-t border-[var(--border)] p-3 flex gap-2"
-      >
+      <form onSubmit={handleSubmit} className="border-t border-[var(--border)] p-3 flex gap-2">
         <input
           value={input}
           onChange={handleInputChange}
