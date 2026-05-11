@@ -4,10 +4,10 @@ Chapter 1 project from the **AI-Powered Software Engineer** learning path. Demon
 
 ## What's Inside
 
-| Route | Pattern | Model |
-|---|---|---|
-| `/chat` | Text streaming — `streamText` + `useChat` | `llama3.1-8b` |
-| `/assistant` | Generative UI — tool calls → React components | `llama-3.3-70b` |
+| Route        | Pattern                                       | Model         |
+| ------------ | --------------------------------------------- | ------------- |
+| `/chat`      | Text streaming — `streamText` + `useChat`     | `llama3.1-8b` |
+| `/assistant` | Generative UI — tool calls → React components | `llama3.1-8b` |
 
 ## Stack
 
@@ -46,7 +46,7 @@ Open http://localhost:3000
 src/
 ├── app/
 │   ├── api/
-│   │   ├── chat/route.ts          ← streamText endpoint (Edge → Node)
+│   │   ├── chat/route.ts          ← streamText endpoint
 │   │   └── assistant/route.ts     ← tool-augmented streamText endpoint
 │   ├── chat/page.tsx
 │   ├── assistant/page.tsx
@@ -55,10 +55,10 @@ src/
 ├── modules/
 │   ├── chat/
 │   │   └── components/
-│   │       └── ChatWindow.tsx     ← useChat, streaming indicator
+│   │       └── ChatWindow.tsx       ← useChat, streaming indicator
 │   └── assistant/
 │       └── components/
-│           ├── AssistantWindow.tsx  ← toolInvocations → component renderer
+│           ├── AssistantWindow.tsx  ← m.parts → component renderer
 │           ├── WeatherCard.tsx      ← rendered when get_weather tool fires
 │           └── StockCard.tsx        ← rendered when get_stock tool fires
 └── shared/
@@ -85,53 +85,49 @@ The server holds an HTTP connection open and pushes tokens as they are sampled. 
 
 ```
 POST /api/assistant
-  └── streamText({ tools })
-        │
-        ├── LLM decides to call get_weather({ city: "Tokyo" })
-        │     └── execute() runs on server → returns mock data
-        │           └── result streamed as toolInvocation object
-        │
-        ▼
+  └── convertToCoreMessages(messages)   ← converts UI messages → CoreMessage[]
+        └── streamText({ tools })
+              │
+              ├── LLM decides to call get_weather({ city: "Tokyo" })
+              │     └── execute() runs on server → returns mock data
+              │           └── result streamed back to client
+              │
+              ▼
   useChat() on client
-  message.toolInvocations → mapped to <WeatherCard /> or <StockCard />
+  message.parts → mapped to <WeatherCard /> or <StockCard />
 ```
 
 The LLM never returns JSX. It returns **structured data**. The client decides which component to render for each tool result — keeping the component tree fully in your control.
 
-**Key states in `toolInvocations`:**
+**Message parts in AI SDK v4:**
 
-| `tool.state` | Meaning | UI |
-|---|---|---|
-| `'call'` | Tool called, executing | Pulsing skeleton card |
-| `'result'` | Execution complete | WeatherCard / StockCard |
+| `part.type`         | Meaning               | UI                                 |
+| ------------------- | --------------------- | ---------------------------------- |
+| `'text'`            | Text response         | Chat bubble                        |
+| `'tool-invocation'` | Tool called or result | Skeleton → WeatherCard / StockCard |
+
+**Tool invocation states (`part.toolInvocation.state`):**
+
+| `state`    | Meaning                | UI                      |
+| ---------- | ---------------------- | ----------------------- |
+| `'call'`   | Tool called, executing | Pulsing skeleton card   |
+| `'result'` | Execution complete     | WeatherCard / StockCard |
+
+> **AI SDK v4 note:** `message.toolInvocations` is deprecated. Use `message.parts` and branch on `part.type === 'tool-invocation'` instead. On the server, always pass messages through `convertToCoreMessages()` before `streamText` — the client now sends messages with a `parts` field that must be converted to `CoreMessage[]` first.
 
 ## Try These Prompts
 
 **Text Streaming (`/chat`):**
+
 - `"Explain embeddings in 3 sentences."`
 - `"What is the difference between RAG and fine-tuning?"`
 
 **Generative UI (`/assistant`):**
+
 - `"What's the weather in Tokyo?"`
 - `"Show me the NVDA stock price."`
 - `"Weather in Paris and AAPL stock."` — triggers parallel tool calls
 
-## Why `llama-3.3-70b` for the Assistant
+## Why `llama3.1-8b` for the Assistant
 
-Tool calling requires the model to emit structured function call JSON in a specific format. The 8B model tends to serialize tool calls as plain text instead, breaking the `toolInvocations` parsing. The 70B model has reliable function-calling support. The `/chat` route uses `llama3.1-8b` since it only needs text generation.
-
-## Swapping Providers
-
-All provider logic is isolated to the two route files. To switch:
-
-```bash
-# Anthropic
-npm install @ai-sdk/anthropic
-# replace: cerebras('llama-3.3-70b') → anthropic('claude-sonnet-4-6')
-# env: ANTHROPIC_API_KEY=sk-ant-...
-
-# OpenAI
-npm install @ai-sdk/openai
-# replace: cerebras('llama-3.3-70b') → openai('gpt-4o')
-# env: OPENAI_API_KEY=sk-...
-```
+Tool calling requires the model to emit structured function call JSON. The 8B model can struggle with reliable function-calling; if tool cards don't appear, swap to the 70B model (`llama-3.3-70b`) in `src/app/api/assistant/route.ts`.
